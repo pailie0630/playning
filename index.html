@@ -12,11 +12,11 @@ const $=s=>document.querySelector(s), app=$('#app'),nav=$('#nav');
 const subs=['국어','수학','영어','사회','과학'], jobs=['문장 마법사','수식 기사','언어 탐험가','사회 전략가','과학 연금술사'], monsters=['문장 슬라임','분수 골렘','문법 박쥐','지도 유령','원소 드래곤'];
 const quizzes=[['‘아주 빠르다’에서 ‘아주’의 품사는?','부사','동사','명사',0],['3/4 + 1/4의 값은?','1/2','1','2',1],['She ___ to school every day.','go','going','goes',2],['시장 가격을 결정하는 두 요소는?','기온과 강수량','수요와 공급','위도와 경도',1],['물의 화학식은?','H₂O','CO₂','O₂',0]];
 const store='playning.html.v1', clothes=['기본 모험복','달빛 후드','오로라 로브'];
-let db=JSON.parse(localStorage.getItem(store)||'{"users":{}}'),id=sessionStorage.getItem(store)||'',p=db.users[id],page=p?(p.ready?'홈':'목표'):'로그인',q=0,hits=[],battle=0,audio=null,musicTick=null;
+let db=JSON.parse(localStorage.getItem(store)||'{"users":{}}'),id=sessionStorage.getItem(store)||'',p=db.users[id],page=p?(p.ready||p.deferGoals?'홈':'목표'):'로그인',q=0,hits=[],battle=0,audio=null,musicTick=null;
 const save=()=>localStorage.setItem(store,JSON.stringify(db));
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function fresh(name){return {name, cash:0,xp:0,job:0,outfit:0,owned:[0],subjects:[...subs],log:[],cleared:[],requests:[],attendance:[],missions:{},ready:false}}
-function openUser(key){id=key;p=db.users[key];sessionStorage.setItem(store,key);go(p.ready?'홈':'목표')}
+function openUser(key){id=key;p=db.users[key];sessionStorage.setItem(store,key);go(p.ready||p.deferGoals?'홈':'목표')}
 function go(next){page=next;render();scrollTo(0,0)}
 let toastTimer;function say(t){$('#msg').textContent=t;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#msg').textContent='',2600)}
 function btn(text,action,arg='',cls=''){return '<button type="button" class="'+cls+'" data-act="'+action+'" data-arg="'+esc(arg)+'">'+esc(text)+'</button>'}
@@ -29,7 +29,7 @@ function elapsed(since=0,subject=''){const now=Date.now();let ms=0;for(const ite
 const clock=n=>[Math.floor(n/3600),Math.floor(n/60)%60,n%60].map(v=>String(v).padStart(2,'0')).join(':');
 function stop(){if(!p.running)return;let old=elapsed(0,p.running.subject);let item=p.running;p.running=null;let before=elapsed(0,item.subject);p.log.push({...item,end:Date.now()});let coins=Math.floor(old/60)-Math.floor(before/60);p.cash+=coins;p.xp+=2*coins;save()}
 const goBtn=(t,d)=>btn(t,'go',d);
-function auth(){let reg=page==='회원가입';return '<div class="logo" role="img" aria-label="Playning, 공부를 플레이하다"></div><form id="auth"><h2>'+page+'</h2>'+(reg?field('이름','name')+field('전화번호 (선택)','phone','tel','',''):'')+field('아이디','id','text','','required pattern="[A-Za-z0-9_]{3,24}" title="영문, 숫자, 밑줄 3~24자" autocomplete="username"')+field('비밀번호','pwd','password','','required minlength="6"')+(reg?field('비밀번호 확인','confirm','password'):'')+'<button>'+page+'</button></form><div class="grid">'+goBtn(reg?'로그인으로 돌아가기':'회원가입',reg?'로그인':'회원가입')+btn('바로 체험하기','guest')+'</div><p class="muted">아이디는 여러 기기에서 사용할 수 있어요. 공부 기록은 기기별로 저장돼요.</p>'}
+function auth(){let reg=page==='회원가입';return '<div class="logo" role="img" aria-label="Playning, 공부를 플레이하다"></div><form id="auth"><h2>'+page+'</h2>'+(reg?field('이름','name')+field('전화번호 (선택)','phone','tel','',''):'')+field('아이디','id','text','','required pattern="[A-Za-z0-9_]{3,24}" title="영문, 숫자, 밑줄 3~24자" autocomplete="username"')+field('비밀번호','pwd','password','','required minlength="6"')+(reg?field('비밀번호 확인','confirm','password'):'')+'<button>'+page+'</button></form><div class="grid">'+goBtn(reg?'로그인으로 돌아가기':'회원가입',reg?'로그인':'회원가입')+btn('바로 체험하기','guest')+'</div><p class="muted">계정과 학습 목표는 기기 간에 연결돼요. 공부 시간과 캐시는 기기별로 저장돼요.</p>'}
 function goals(){return '<form id="goals">'+field('희망 진로','career','text',p.career)+field('목표 대학','univ','text',p.univ)+field('현재 등급','grade','number',p.grade||3,'required min="1" max="9" step="0.1"')+field('목표 등급','target','number',p.target||2,'required min="1" max="9" step="0.1"')+field('하루 목표 (분)','minutes','number',p.minutes||60,'required min="1" max="1440"')+field('나의 목표','goal','text',p.goal,'maxlength="200"')+'<button>'+(p.ready?'저장':'저장하고 첫 테스트')+'</button></form>'}
 function quiz(index){let a=quizzes[index];return panel(subs[index],'<h2>'+a[0]+'</h2>'+a.slice(1,4).map((v,i)=>btn(v,'answer',i,'wide')).join(''))}
 function home(){let today=elapsed(+new Date().setHours(0,0,0,0));return '<div class="hero" role="img" aria-label="헤드폰을 쓴 모험가" style="filter:hue-rotate('+[0,50,125][p.outfit]+'deg)"></div><h1>'+esc(p.name)+'의 모험</h1><span class="pill">Lv. '+(1+Math.floor(p.xp/100))+' · '+jobs[p.job]+'</span> '+esc(clothes[p.outfit])+panel('오늘의 공부',row('<b class="time">'+clock(today)+'</b>','목표 '+Math.min(100,Math.floor(today/(p.minutes*60)*100))+'%')+'<progress class="bar" max="100" value="'+p.xp%100+'"></progress><small>'+p.xp%100+' / 100 XP · '+p.cash+' 캐시</small>')+'<div class="grid">'+btn('학습 멘토','go','학습 멘토','feature')+btn('스터디 던전','go','스터디 던전','feature')+goBtn('공부 시작','타이머')+goBtn('학습 계획','목표')+goBtn('친구 찾기','친구')+goBtn('협력 미션','미션')+'</div>'+panel('출석 체크',p.attendance.includes(dateKey())?'오늘 출석 완료 · 누적 '+p.attendance.length+'일':btn('출석하고 20 캐시 받기','check','','primary'))}
@@ -79,7 +79,7 @@ function attack(){let d=dungeonState();if(selectedAnswer===null)return say('답�
 if(!right){d.streak=0;d.notice='공격 실패! 다시 생각해 보세요.'}else{d.step++;d.streak++;d.notice='명중! 몬스터의 HP가 줄었어요.';if(d.step%3===0){p.cash+=30;p.xp+=50;d.notice='몬스터 처치! 50 XP와 30 P를 받았어요. 다음 스테이지가 열렸어요.'}}save();render()}
 const tabs=['홈','타이머','친구','미션','마이페이지'];
 function render(){let views={'학습 멘토':mentorPage,'스터디 던전':dungeonPage,'홈':home,'타이머':timer,'친구':friends,'미션':missions,'마이페이지':profile,'상점':shop,'목표':goals,'랭킹':ranks,'첫 테스트':()=>'<p>'+ (q+1)+' / 5</p>'+quiz(q),'문제':()=>quiz(battle),'배틀':()=>subs.map((s,i)=>panel(monsters[i],row(s+' · '+jobs[i],btn(p.cleared.includes(i)?'다시 풀기':'도전','fight',i)))).join(''),'직업':()=>jobs.map((j,i)=>btn(j+(p.job===i?' · 선택됨':''),'job',i,'wide')).join(''),'등급 환산':()=>'<form id="convert">'+field('석차','rank','number','','required min="1"')+field('전체 인원','size','number','','required min="1"')+'<button>예상 등급 계산</button><output id="result"></output></form><small>단순 누적 비율 기준이며 동점자는 반영하지 않아요.</small>','플레이리스트':()=>panel('과목별 집중 사운드','<p>과목별로 음색이 다른 연주를 재생해요.</p>'+subs.map((s,i)=>btn(s+' 연주','music',i,'wide')).join('')+btn('재생 중지','silence','','wide'))};
-app.innerHTML=p?'<div class="brand">Playning</div>'+(page==='홈'?'':'<h1>'+esc(page==='학습 멘토'?'AI STUDY MENTOR':page==='스터디 던전'?'STUDY DUNGEON':page==='미션'?'WEEKLY MISSIONS':page==='타이머'?'STUDY TIMER':page)+'</h1>')+views[page]():auth();nav.innerHTML=p?.ready?tabs.map((t,i)=>'<button data-act="go" data-arg="'+t+'" class="'+(t===page?'active':'')+'"><b>'+['⌂','◷','♧','⚑','◎'][i]+'</b>'+t+'</button>').join(''):'';tick()}
+app.innerHTML=p?'<div class="brand">Playning</div>'+(page==='홈'?'':'<h1>'+esc(page==='학습 멘토'?'AI STUDY MENTOR':page==='스터디 던전'?'STUDY DUNGEON':page==='미션'?'WEEKLY MISSIONS':page==='타이머'?'STUDY TIMER':page)+'</h1>')+views[page]():auth();nav.innerHTML=(p?.ready||p?.deferGoals)?tabs.map((t,i)=>'<button data-act="go" data-arg="'+t+'" class="'+(t===page?'active':'')+'"><b>'+['⌂','◷','♧','⚑','◎'][i]+'</b>'+t+'</button>').join(''):'';tick()}
 function tick(){if(!p||page!=='타이머')return;$('#sum').textContent=clock(elapsed());document.querySelectorAll('[data-clock]').forEach(el=>el.textContent=clock(elapsed(0,p.subjects[el.dataset.clock])))}
 function silence(){clearInterval(musicTick);if(audio){audio.close();audio=null}}
 function music(i){silence();audio=new AudioContext();let k=0;function note(){let o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime;o.type=i%2?'triangle':'sine';o.frequency.value=[220,261.63,329.63,392,329.63,261.63][k++%6]*[1,.75,1.25,.875,1.125][i];g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.075,t+.12);g.gain.exponentialRampToValueAtTime(.001,t+1.4);o.connect(g);g.connect(audio.destination);o.start(t);o.stop(t+1.45)}note();musicTick=setInterval(note,750+i*100);say(subs[i]+' 연주 중')}
@@ -107,6 +107,83 @@ function accountError(err){
     if(err.code==='invalid_credentials')return '아이디 또는 비밀번호를 확인해 주세요. 기존 베타 계정은 처음 가입한 브라우저에서 한 번 로그인해 주세요.';
     if(err.code==='weak_password')return '다른 비밀번호를 사용해 주세요. 6자 이상으로 입력해 주세요.';
     return '인증 서버와 연결하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.';
+}
+const goalFields=['career','univ','grade','target','minutes','goal','job','ready'];
+function goalSnapshot(record){
+    return Object.fromEntries(goalFields.map(k=>[k,record[k]]).concat([['edited',record.goalEdited||0]]));
+}
+function validGoals(value){
+    return value && typeof value.career==='string' && value.career.trim() &&
+        typeof value.univ==='string' && value.univ.trim() &&
+        +value.grade>=1 && +value.grade<=9 && +value.target>=1 && +value.target<=9 &&
+        +value.minutes>=1 && +value.minutes<=1440 &&
+        Number.isInteger(value.job) && value.job>=0 && value.job<jobs.length &&
+        typeof value.ready==='boolean';
+}
+function acceptGoals(record,cloud){
+    for(const field of goalFields) record[field]=cloud[field];
+    record.goalEdited=Number(cloud.edited)||0;
+    delete record.deferGoals;
+    delete record.goalPending;
+}
+async function goalRequest(method,key,body){
+    if(sessionStorage.getItem('playning.owner')!==key)throw Error('로그인이 필요해요.');
+    async function request(token){
+        return fetch(accountServer+'user',{method,headers:{apikey:publishableKey,
+            Authorization:'Bearer '+token,'Content-Type':'application/json'},
+            body:body&&JSON.stringify(body),signal:AbortSignal.timeout(15000)});
+    }
+    let response=await request(sessionStorage.getItem('playning.access'));
+    const refresh=sessionStorage.getItem('playning.refresh');
+    if(response.status===401 && refresh){
+        const renewed=await fetch(accountServer+'token?grant_type=refresh_token',{method:'POST',
+            headers:{apikey:publishableKey,'Content-Type':'application/json'},
+            body:JSON.stringify({refresh_token:refresh}),signal:AbortSignal.timeout(15000)});
+        if(renewed.ok){
+            const session=await renewed.json();
+            if('cloud_'+session.user.id!==key||sessionStorage.getItem('playning.owner')!==key)throw Error('계정이 변경됐어요.');
+            sessionStorage.setItem('playning.access',session.access_token);
+            sessionStorage.setItem('playning.refresh',session.refresh_token);
+            response=await request(session.access_token);
+        }
+    }
+    if(!response.ok)throw Error('목표 동기화에 실패했어요.');
+    const user=await response.json();
+    if('cloud_'+user.id!==key)throw Error('계정이 일치하지 않아요.');
+    return user.user_metadata?.playning_goals;
+}
+let goalQueue=Promise.resolve();
+function syncGoals(key,record,known){
+    const work=goalQueue.then(async()=>{
+        const cloud=known===undefined?await goalRequest('GET',key):known;
+        if(validGoals(cloud)&&(!record.goalPending||Number(cloud.edited)>record.goalEdited)){
+            acceptGoals(record,cloud);
+        }else if(validGoals(record)&&(record.goalPending||!validGoals(cloud))){
+            const snapshot=goalSnapshot(record);
+            await goalRequest('PUT',key,{data:{playning_goals:snapshot}});
+            if((record.goalEdited||0)===snapshot.edited)delete record.goalPending;
+        }
+        save();
+    });
+    goalQueue=work.catch(()=>{});
+    return work;
+}
+function changedGoals(){
+    delete p.deferGoals;
+    p.goalEdited=Date.now();p.goalPending=true;save();
+    if(id.startsWith('cloud_'))syncGoals(id,p).catch(()=>say('이 기기에 저장했어요. 다시 로그인하면 계정과 동기화돼요.'));
+}
+async function resumeGoals(){
+    if(!id.startsWith('cloud_')||!p||!sessionStorage.getItem('playning.access'))return;
+    const key=id,record=p,previousPage=page;
+    sessionStorage.setItem('playning.owner',key);
+    try{
+        await syncGoals(key,record);
+        if(key===id&&page===previousPage && (page==='홈'||page==='목표') &&
+            !document.querySelector('input:focus')){
+            if(record.ready&&page==='목표')go('홈');else render();
+        }
+    }catch{if(key===id)say('목표를 연결하려면 다시 로그인해 주세요.')}
 }
 async function submitAccount(form,values){
     const name=values.id.trim().toLowerCase(), legacyKey='u_'+name;
@@ -153,18 +230,24 @@ async function submitAccount(form,values){
         }
         save();
         sessionStorage.setItem('playning.access',session.access_token);
-        openUser(userKey);
+        sessionStorage.setItem('playning.owner',userKey);
+        sessionStorage.setItem('playning.refresh',session.refresh_token);
+        const record=db.users[userKey];
+        const cloud=session.user.user_metadata?.playning_goals;
+        await syncGoals(userKey,record,cloud||null);
+        if(!register&&!validGoals(record)){record.deferGoals=true;record.minutes??=60;record.grade??=3;record.target??=2;}
+        save();openUser(userKey);
     }catch(err){say(accountError(err))}
     finally{button.disabled=false}
 }
 function endAccountSession(){
     const token=sessionStorage.getItem('playning.access');
-    sessionStorage.removeItem('playning.access');
+    sessionStorage.removeItem('playning.access');sessionStorage.removeItem('playning.refresh');sessionStorage.removeItem('playning.owner');
     if(token)fetch(accountServer+'logout?scope=local',{method:'POST',headers:{apikey:publishableKey,Authorization:'Bearer '+token}}).catch(()=>{});
 }
 async function verifier(pass,salt){let enc=new TextEncoder(),key=await crypto.subtle.importKey('raw',enc.encode(pass),'PBKDF2',false,['deriveBits']);let bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:enc.encode(salt),iterations:120000},key,256);return Array.from(new Uint8Array(bits),v=>v.toString(16).padStart(2,'0')).join('')}
 document.addEventListener('submit',async e=>{e.preventDefault();let f=e.target,v=Object.fromEntries(new FormData(f));try{if(f.getAttribute('id')==='mentorAsk'){await askMentor(v.question.trim());return}if(f.getAttribute('id')==='auth'){await submitAccount(f,v)}
-else if(f.getAttribute('id')==='goals'){Object.assign(p,v);save();q=0;hits=[];go(p.ready?'홈':'첫 테스트')}
+else if(f.getAttribute('id')==='goals'){Object.assign(p,v);changedGoals();q=0;hits=[];go(p.ready?'홈':'첫 테스트')}
 else if(f.getAttribute('id')==='subject'){let s=v.subject.trim();if(!s||p.subjects.includes(s))return say('다른 과목명을 입력해 주세요.');p.subjects.push(s);save();render()}
 else if(f.getAttribute('id')==='convert'){let n=100*v.rank/v.size;$('#result').textContent=n>100?'석차가 전체 인원보다 큽니다.':'상위 '+n.toFixed(2)+'% · 예상 '+(1+[4,11,23,40,60,77,89,96,100].findIndex(x=>n<=x))+'등급'}
 }catch(err){say('브라우저에서 저장 또는 인증을 사용할 수 없어요. Chrome이나 Edge에서 열어 주세요.')}})
@@ -173,18 +256,18 @@ switch(a){case 'go':return go(v);case 'guest':if(!db.users.guest){db.users.guest
 case 'logout':endAccountSession();stop();silence();sessionStorage.removeItem(store);p=null;return go('로그인');
 case 'check':if(!p.attendance.includes(dateKey())){p.attendance.push(dateKey());p.cash+=20;p.xp+=10}break;
 case 'timer':{let s=p.subjects[i],was=p.running?.subject===s;stop();if(!was)p.running={subject:s,start:Date.now()};break}
-case 'answer':if(page==='첫 테스트'){if(i===quizzes[q][4])hits.push(q);if(++q===5){p.job=hits[0]??0;p.ready=true;save();say('첫 테스트 '+hits.length+'/5 · '+jobs[p.job]);return go('홈')}}else{if(i!==quizzes[battle][4])return say('다시 생각해 보세요.');if(!p.cleared.includes(battle)){p.cleared.push(battle);p.cash+=15;p.xp+=25}save();say('정답이에요!');return go('배틀')}break;
+case 'answer':if(page==='첫 테스트'){if(i===quizzes[q][4])hits.push(q);if(++q===5){p.job=hits[0]??0;p.ready=true;changedGoals();say('첫 테스트 '+hits.length+'/5 · '+jobs[p.job]);return go('홈')}}else{if(i!==quizzes[battle][4])return say('다시 생각해 보세요.');if(!p.cleared.includes(battle)){p.cleared.push(battle);p.cash+=15;p.xp+=25}save();say('정답이에요!');return go('배틀')}break;
 case 'topic':mentorTopic=i;break;
 case 'makePlan':p.studyPlan=planFor(subjectFor(p.mentorChat?.at(-1)?.question||''));say('학습 계획을 저장했어요.');break;
 case 'dsubject':dungeonSubject=i;selectedAnswer=null;break;
 case 'pick':selectedAnswer=i;break;
 case 'attack':return attack();
-case 'fight':battle=i;return go('문제');case 'job':p.job=i;break;
+case 'fight':battle=i;return go('문제');case 'job':p.job=i;if(validGoals(p))changedGoals();break;
 case 'friend':p.requests=p.requests.includes(v)?p.requests.filter(n=>n!==v):[...p.requests,v];break;
 case 'mission':{let w=weekly();if(w.claimed.includes(i))return;if(progress(i)>=limits[i]){w.claimed.push(i);p.cash+=prizes[i];p.xp+=20}else if(!i)return go('타이머');else{let text=prompt(missionNames[i]);if(!text?.trim())return;w.notes.push({i,text:text.trim()})}break}
 case 'buy':if(!p.owned.includes(i)){let cost=[0,40,85][i];if(p.cash<cost)return say('캐시가 부족해요.');p.cash-=cost;p.owned.push(i)}p.outfit=i;break;
 case 'ticket':if(p.cash<200)return say('200 캐시가 필요해요.');if(!p.ticket){p.cash-=200;p.ticket=true}break;
 case 'music':return music(i);case 'silence':silence();return say('재생을 중지했어요.')}
 save();render()});
-render();setInterval(tick,500);
+render();resumeGoals();setInterval(tick,500);
 </script></html>
