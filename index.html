@@ -29,7 +29,7 @@ function elapsed(since=0,subject=''){const now=Date.now();let ms=0;for(const ite
 const clock=n=>[Math.floor(n/3600),Math.floor(n/60)%60,n%60].map(v=>String(v).padStart(2,'0')).join(':');
 function stop(){if(!p.running)return;let old=elapsed(0,p.running.subject);let item=p.running;p.running=null;let before=elapsed(0,item.subject);p.log.push({...item,end:Date.now()});let coins=Math.floor(old/60)-Math.floor(before/60);p.cash+=coins;p.xp+=2*coins;save()}
 const goBtn=(t,d)=>btn(t,'go',d);
-function auth(){let reg=page==='회원가입';return '<div class="logo" role="img" aria-label="Playning, 공부를 플레이하다"></div><form id="auth"><h2>'+page+'</h2>'+(reg?field('이름','name')+field('전화번호 (선택)','phone','tel','',''):'')+field('아이디','id','text','','required pattern="[A-Za-z0-9_]{3,24}" title="영문, 숫자, 밑줄 3~24자" autocomplete="username"')+field('비밀번호','pwd','password','','required minlength="6"')+(reg?field('비밀번호 확인','confirm','password'):'')+'<button>'+page+'</button></form><div class="grid">'+goBtn(reg?'로그인으로 돌아가기':'회원가입',reg?'로그인':'회원가입')+btn('바로 체험하기','guest')+'</div><p class="muted">계정과 기록은 이 브라우저에 저장돼요.</p>'}
+function auth(){let reg=page==='회원가입';return '<div class="logo" role="img" aria-label="Playning, 공부를 플레이하다"></div><form id="auth"><h2>'+page+'</h2>'+(reg?field('이름','name')+field('전화번호 (선택)','phone','tel','',''):'')+field('아이디','id','text','','required pattern="[A-Za-z0-9_]{3,24}" title="영문, 숫자, 밑줄 3~24자" autocomplete="username"')+field('비밀번호','pwd','password','','required minlength="6"')+(reg?field('비밀번호 확인','confirm','password'):'')+'<button>'+page+'</button></form><div class="grid">'+goBtn(reg?'로그인으로 돌아가기':'회원가입',reg?'로그인':'회원가입')+btn('바로 체험하기','guest')+'</div><p class="muted">아이디는 여러 기기에서 사용할 수 있어요. 공부 기록은 기기별로 저장돼요.</p>'}
 function goals(){return '<form id="goals">'+field('희망 진로','career','text',p.career)+field('목표 대학','univ','text',p.univ)+field('현재 등급','grade','number',p.grade||3,'required min="1" max="9" step="0.1"')+field('목표 등급','target','number',p.target||2,'required min="1" max="9" step="0.1"')+field('하루 목표 (분)','minutes','number',p.minutes||60,'required min="1" max="1440"')+field('나의 목표','goal','text',p.goal,'maxlength="200"')+'<button>'+(p.ready?'저장':'저장하고 첫 테스트')+'</button></form>'}
 function quiz(index){let a=quizzes[index];return panel(subs[index],'<h2>'+a[0]+'</h2>'+a.slice(1,4).map((v,i)=>btn(v,'answer',i,'wide')).join(''))}
 function home(){let today=elapsed(+new Date().setHours(0,0,0,0));return '<div class="hero" role="img" aria-label="헤드폰을 쓴 모험가" style="filter:hue-rotate('+[0,50,125][p.outfit]+'deg)"></div><h1>'+esc(p.name)+'의 모험</h1><span class="pill">Lv. '+(1+Math.floor(p.xp/100))+' · '+jobs[p.job]+'</span> '+esc(clothes[p.outfit])+panel('오늘의 공부',row('<b class="time">'+clock(today)+'</b>','목표 '+Math.min(100,Math.floor(today/(p.minutes*60)*100))+'%')+'<progress class="bar" max="100" value="'+p.xp%100+'"></progress><small>'+p.xp%100+' / 100 XP · '+p.cash+' 캐시</small>')+'<div class="grid">'+btn('학습 멘토','go','학습 멘토','feature')+btn('스터디 던전','go','스터디 던전','feature')+goBtn('공부 시작','타이머')+goBtn('학습 계획','목표')+goBtn('친구 찾기','친구')+goBtn('협력 미션','미션')+'</div>'+panel('출석 체크',p.attendance.includes(dateKey())?'오늘 출석 완료 · 누적 '+p.attendance.length+'일':btn('출석하고 20 캐시 받기','check','','primary'))}
@@ -83,15 +83,94 @@ app.innerHTML=p?'<div class="brand">Playning</div>'+(page==='홈'?'':'<h1>'+esc(
 function tick(){if(!p||page!=='타이머')return;$('#sum').textContent=clock(elapsed());document.querySelectorAll('[data-clock]').forEach(el=>el.textContent=clock(elapsed(0,p.subjects[el.dataset.clock])))}
 function silence(){clearInterval(musicTick);if(audio){audio.close();audio=null}}
 function music(i){silence();audio=new AudioContext();let k=0;function note(){let o=audio.createOscillator(),g=audio.createGain(),t=audio.currentTime;o.type=i%2?'triangle':'sine';o.frequency.value=[220,261.63,329.63,392,329.63,261.63][k++%6]*[1,.75,1.25,.875,1.125][i];g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.075,t+.12);g.gain.exponentialRampToValueAtTime(.001,t+1.4);o.connect(g);g.connect(audio.destination);o.start(t);o.stop(t+1.45)}note();musicTick=setInterval(note,750+i*100);say(subs[i]+' 연주 중')}
+const accountServer='https://fvhqogafklmjrswguxyo.supabase.co/auth/v1/';
+const publishableKey='sb_publishable_d1T6CKUP2Orxk1ON7VmiiA_w_Okwxe-';
+async function authenticate(action,username,password,name){
+    const body={email:username+'@accounts.playning.example.com',password};
+    if(action==='signup') body.data={display_name:name};
+    const response=await fetch(accountServer+action,{
+        method:'POST',headers:{apikey:publishableKey,'Content-Type':'application/json'},
+        body:JSON.stringify(body),signal:AbortSignal.timeout(20000)
+    });
+    const result=await response.json();
+    if(!response.ok||!result.user?.id||!result.access_token){
+        const err=new Error('인증 요청을 완료하지 못했어요.');
+        err.code=result.error_code||result.code;
+        err.status=response.status;
+        throw err;
+    }
+    return result;
+}
+function accountError(err){
+    if(err.status===429)return '요청이 많아요. 잠시 뒤 다시 시도해 주세요.';
+    if(['user_already_exists','email_exists'].includes(err.code))return '이미 등록된 아이디예요. 로그인하거나 다른 아이디를 사용해 주세요.';
+    if(err.code==='invalid_credentials')return '아이디 또는 비밀번호를 확인해 주세요. 기존 베타 계정은 처음 가입한 브라우저에서 한 번 로그인해 주세요.';
+    if(err.code==='weak_password')return '다른 비밀번호를 사용해 주세요. 6자 이상으로 입력해 주세요.';
+    return '인증 서버와 연결하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.';
+}
+async function submitAccount(form,values){
+    const name=values.id.trim().toLowerCase(), legacyKey='u_'+name;
+    const legacy=db.users[legacyKey];
+    const register=page==='회원가입';
+    if(register&&values.pwd!==values.confirm)return say('비밀번호 확인이 일치하지 않아요.');
+    if(register&&!values.name.trim())return say('이름을 입력해 주세요.');
+    if(register&&legacy)return say('이 브라우저에 같은 아이디가 있어요. 로그인 화면에서 기존 계정을 연결해 주세요.');
+    const button=form.querySelector('button[type=submit],button:not([type])');
+    if(button.disabled)return;
+    button.disabled=true;
+    try{
+        let session,verifiedLegacy=false;
+        if(!register&&legacy?.hash)verifiedLegacy=await verifier(values.pwd,legacy.salt)===legacy.hash;
+        if(register)session=await authenticate('signup',name,values.pwd,values.name.trim());
+        else{
+            try{session=await authenticate('token?grant_type=password',name,values.pwd)}
+            catch(err){
+                if(!verifiedLegacy||err.code!=='invalid_credentials')throw err;
+                if(!confirm('이 기기에서 기존 비밀번호를 확인했어요. 같은 아이디를 다른 기기에서도 사용하도록 Playning 공용 계정으로 등록할까요?'))return;
+                let next=name;
+                for(;;){
+                    try{session=await authenticate('signup',next,values.pwd,legacy.name);break}
+                    catch(conflict){
+                        if(!['user_already_exists','email_exists'].includes(conflict.code))throw conflict;
+                        const input=prompt('다른 공용 계정이 이 아이디를 사용 중이에요. 기존 공부 기록에 연결할 새 아이디를 입력해 주세요.');
+                        if(!input)return;
+                        next=input.trim().toLowerCase();
+                        if(!/^[a-z0-9_]{3,24}$/.test(next))return say('영문·숫자·밑줄 3~24자로 입력해 주세요.');
+                    }
+                }
+            }
+        }
+        const userKey='cloud_'+session.user.id;
+        if(!db.users[userKey]){
+            if(verifiedLegacy){
+                const {hash,salt,...record}=legacy;
+                db.users[userKey]=record;
+                delete db.users[legacyKey];
+            }else{
+                db.users[userKey]=fresh(session.user.user_metadata?.display_name||name);
+                if(register)db.users[userKey].phone=values.phone||'';
+            }
+        }
+        save();
+        sessionStorage.setItem('playning.access',session.access_token);
+        openUser(userKey);
+    }catch(err){say(accountError(err))}
+    finally{button.disabled=false}
+}
+function endAccountSession(){
+    const token=sessionStorage.getItem('playning.access');
+    sessionStorage.removeItem('playning.access');
+    if(token)fetch(accountServer+'logout?scope=local',{method:'POST',headers:{apikey:publishableKey,Authorization:'Bearer '+token}}).catch(()=>{});
+}
 async function verifier(pass,salt){let enc=new TextEncoder(),key=await crypto.subtle.importKey('raw',enc.encode(pass),'PBKDF2',false,['deriveBits']);let bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:enc.encode(salt),iterations:120000},key,256);return Array.from(new Uint8Array(bits),v=>v.toString(16).padStart(2,'0')).join('')}
-document.addEventListener('submit',async e=>{e.preventDefault();let f=e.target,v=Object.fromEntries(new FormData(f));try{if(f.getAttribute('id')==='mentorAsk'){await askMentor(v.question.trim());return}if(f.getAttribute('id')==='auth'){let key='u_'+v.id.toLowerCase();if(page==='회원가입'){if(db.users[key])return say('이미 사용 중인 아이디예요.');if(v.pwd!==v.confirm)return say('비밀번호 확인이 일치하지 않아요.');let salt=Array.from(crypto.getRandomValues(new Uint32Array(4))).join('-');db.users[key]={...fresh(v.name.trim()),phone:v.phone,salt,hash:await verifier(v.pwd,salt)};save()}else if(!db.users[key]||await verifier(v.pwd,db.users[key].salt)!==db.users[key].hash)return say('아이디 또는 비밀번호를 확인해 주세요.');openUser(key)}
+document.addEventListener('submit',async e=>{e.preventDefault();let f=e.target,v=Object.fromEntries(new FormData(f));try{if(f.getAttribute('id')==='mentorAsk'){await askMentor(v.question.trim());return}if(f.getAttribute('id')==='auth'){await submitAccount(f,v)}
 else if(f.getAttribute('id')==='goals'){Object.assign(p,v);save();q=0;hits=[];go(p.ready?'홈':'첫 테스트')}
 else if(f.getAttribute('id')==='subject'){let s=v.subject.trim();if(!s||p.subjects.includes(s))return say('다른 과목명을 입력해 주세요.');p.subjects.push(s);save();render()}
 else if(f.getAttribute('id')==='convert'){let n=100*v.rank/v.size;$('#result').textContent=n>100?'석차가 전체 인원보다 큽니다.':'상위 '+n.toFixed(2)+'% · 예상 '+(1+[4,11,23,40,60,77,89,96,100].findIndex(x=>n<=x))+'등급'}
 }catch(err){say('브라우저에서 저장 또는 인증을 사용할 수 없어요. Chrome이나 Edge에서 열어 주세요.')}})
 document.addEventListener('click',e=>{let b=e.target.closest('[data-act]');if(!b)return;let a=b.dataset.act,v=b.dataset.arg,i=Number(v);
 switch(a){case 'go':return go(v);case 'guest':if(!db.users.guest){db.users.guest={...fresh('체험 모험가'),ready:true,grade:3,target:2,minutes:60,career:'진로 탐색',univ:'목표 대학 미정',goal:''};save()}return openUser('guest');
-case 'logout':stop();silence();sessionStorage.removeItem(store);p=null;return go('로그인');
+case 'logout':endAccountSession();stop();silence();sessionStorage.removeItem(store);p=null;return go('로그인');
 case 'check':if(!p.attendance.includes(dateKey())){p.attendance.push(dateKey());p.cash+=20;p.xp+=10}break;
 case 'timer':{let s=p.subjects[i],was=p.running?.subject===s;stop();if(!was)p.running={subject:s,start:Date.now()};break}
 case 'answer':if(page==='첫 테스트'){if(i===quizzes[q][4])hits.push(q);if(++q===5){p.job=hits[0]??0;p.ready=true;save();say('첫 테스트 '+hits.length+'/5 · '+jobs[p.job]);return go('홈')}}else{if(i!==quizzes[battle][4])return say('다시 생각해 보세요.');if(!p.cleared.includes(battle)){p.cleared.push(battle);p.cash+=15;p.xp+=25}save();say('정답이에요!');return go('배틀')}break;
